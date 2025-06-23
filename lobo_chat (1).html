@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LOBO CHAT CYBERPUNK 🐺</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Orbitron', sans-serif;
+      background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+      color: #0ff;
+      padding: 20px;
+    }
+    h2 {
+      text-align: center;
+      font-size: 30px;
+      animation: glitch 1s infinite;
+      user-select: none;
+    }
+    @keyframes glitch {
+      0%, 100% { text-shadow: 2px 2px #f0f, -2px -2px #0ff; }
+      50% { text-shadow: -2px 2px #0ff, 2px -2px #f0f; }
+    }
+    #chat {
+      background: rgba(0, 0, 0, 0.6);
+      border: 2px solid #0ff;
+      padding: 10px;
+      height: 320px;
+      overflow-y: auto;
+      margin-bottom: 10px;
+    }
+    #chat .message {
+      margin: 6px 0;
+      color: #fff;
+      animation: appear 0.3s ease;
+      word-wrap: break-word;
+    }
+    #chat .message img {
+      max-width: 200px;
+      border-radius: 5px;
+      margin-top: 5px;
+      border: 1.5px solid #0ff;
+    }
+    @keyframes appear {
+      from { transform: translateY(10px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    #msg, #fileInput {
+      padding: 10px;
+      font-size: 16px;
+      font-family: 'Orbitron', sans-serif;
+      border: none;
+      outline: none;
+      background: #111;
+      color: #0ff;
+      border: 2px solid #0ff;
+      border-radius: 4px;
+    }
+    #msg { width: 40%; }
+    #fileInput { width: 18%; margin-left: 5px; }
+    button {
+      background: #0ff;
+      color: #000;
+      font-weight: bold;
+      cursor: pointer;
+      border: none;
+      border-radius: 4px;
+      margin: 5px;
+      padding: 10px;
+    }
+    button:hover {
+      background: #f0f;
+      color: #000;
+    }
+    #camera {
+      display: none;
+      width: 100%;
+      max-width: 480px;
+      margin: 10px auto;
+      border: 2px solid #0ff;
+      border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
+  <h2>💬 LOBO CHAT 🐺 CYBERPUNK</h2>
+  <div id="chat"></div>
+  <input id="msg" placeholder="Escribe tu mensaje..." autocomplete="off" />
+  <input type="file" id="fileInput" accept="image/*" />
+  <button id="btnEnviar">Enviar</button>
+  <button id="btnCam">🎥 Cámara</button>
+  <button id="btnVoz">🎤 Voz</button>
+  <video id="camera" autoplay playsinline muted></video>
+  <audio id="sound" src="https://www.soundjay.com/button/beep-07.wav" preload="auto"></audio>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyB1PrxrqbDdVfy_-S9x8qVHCavnpKkM9gI",
+      authDomain: "lobo-chat-14153.firebaseapp.com",
+      projectId: "lobo-chat-14153",
+      storageBucket: "lobo-chat-14153.appspot.com",
+      messagingSenderId: "294274072023",
+      appId: "1:294274072023:web:2d31670b5066c0f33c5f92",
+      databaseURL: "https://lobo-chat-14153-default-rtdb.firebaseio.com"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    const storage = firebase.storage();
+    const chat = document.getElementById("chat");
+    const sonido = document.getElementById("sound");
+    const fileInput = document.getElementById("fileInput");
+    const inputMsg = document.getElementById("msg");
+    const cameraVideo = document.getElementById("camera");
+
+    let apodo = localStorage.getItem("lobo_apodo") || prompt("🐺 Ingresa tu apodo:") || "Lobo";
+    localStorage.setItem("lobo_apodo", apodo);
+
+    db.ref("chat").on("child_added", snapshot => {
+      const data = snapshot.val();
+      const div = document.createElement("div");
+      div.classList.add("message");
+
+      if (data.tipo === "texto") {
+        div.textContent = `[${data.usuario}] ${data.texto}`;
+      } else if (data.tipo === "imagen") {
+        div.innerHTML = `<strong>${data.usuario}:</strong><br><img src="${data.url}" alt="Imagen" />`;
+      }
+
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
+      sonido.play();
+    });
+
+    async function enviar() {
+      const texto = inputMsg.value.trim();
+      const archivo = fileInput.files[0];
+      if (!texto && !archivo) return;
+
+      if (archivo) {
+        const ruta = `imagenes_chat/${Date.now()}_${archivo.name}`;
+        const referencia = storage.ref(ruta);
+        try {
+          const snapshot = await referencia.put(archivo);
+          const url = await snapshot.ref.getDownloadURL();
+          db.ref("chat").push({ tipo: "imagen", usuario: apodo, url, timestamp: Date.now() });
+          fileInput.value = "";
+        } catch (err) {
+          alert("Error al subir imagen: " + err.message);
+        }
+      }
+
+      if (texto) {
+        db.ref("chat").push({ tipo: "texto", texto, usuario: apodo, timestamp: Date.now() });
+        inputMsg.value = "";
+      }
+    }
+
+    inputMsg.addEventListener("keydown", e => {
+      if (e.key === "Enter") enviar();
+    });
+    document.getElementById("btnEnviar").addEventListener("click", enviar);
+
+    // Cámara
+    document.getElementById("btnCam").addEventListener("click", () => {
+      if (!cameraVideo.srcObject) {
+        navigator.mediaDevices.getUserMedia({ video: true })
+          .then(stream => {
+            cameraVideo.srcObject = stream;
+            cameraVideo.play();
+            cameraVideo.style.display = "block";
+          })
+          .catch(err => alert("Error cámara: " + err.message));
+      } else {
+        cameraVideo.srcObject.getTracks().forEach(track => track.stop());
+        cameraVideo.srcObject = null;
+        cameraVideo.style.display = "none";
+      }
+    });
+
+    // Voz
+    document.getElementById("btnVoz").addEventListener("click", () => {
+      if (!('webkitSpeechRecognition' in window)) {
+        alert("Tu navegador no soporta reconocimiento de voz");
+        return;
+      }
+
+      const recognition = new webkitSpeechRecognition();
+      recognition.lang = "es-ES";
+      recognition.onresult = (event) => {
+        const texto = event.results[0][0].transcript;
+        inputMsg.value = texto;
+        enviar();
+      };
+      recognition.onerror = (e) => {
+        console.error("Error voz:", e);
+        alert("Error en reconocimiento de voz");
+      };
+      recognition.start();
+    });
+  </script>
+</body>
+</html>
